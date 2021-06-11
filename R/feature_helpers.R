@@ -1,8 +1,11 @@
-get_multi_coord = function(projected, id){
-  l = length(projected@polygons[[id]]@Polygons)
-  coords = lapply(1:l, FUN=function(x) projected@polygons[[id]]@Polygons[[x]]@coords)
-  return(coords)
+get_multi_coord <- function(projected, id) {
+  coords <- st_coordinates(projected$geometry[id])
+  
+  return(lapply(1:length(unique(coords[, 3])),  function(x){
+    coords[ coords[, 3] == x, 1:2]
+  }))
 }
+
 
 crack_shp = function(coord1){  # a list of polygon coords; list of length 1 in the case of contiguous districts
   if(length(coord1)==1){
@@ -80,33 +83,31 @@ get_all_bound_features = function(shp){
 ## One part of this code needs to write JPGs to disk, then call a python script (from R) to generate significant corners
 ## To do this, it should be easy to plot the shape with no labels or axes
 get_corners_features = function(shp){
-  temp = lapply(1:nrow(shp[[1]]), FUN=function(x) get_one_corner(shp[[2]][[x]]))
-  out = do.call(rbind, temp)
-  #file.remove("temp.png")
-  return(out)
+  dir <- withr::local_tempdir()
+  temp = lapply(1:nrow(shp[[1]]), FUN=function(x, direc = dir) get_one_corner(shp[[2]][[x]], direc))
+  withr::deferred_clear()
+  do.call(rbind, temp)
 }
 
 ## Here I call a function I source from Harris.R
-get_one_corner = function(xy){
+get_one_corner = function(xy, dir){
   full = do.call(rbind, xy)
   width = max(full[,1]) - min(full[,1])
   height = max(full[,2]) - min(full[,2])
-  ratio = width/height
-  ratio = min(5, ratio)
-  png("temp.png", height=1000, width = 1000*ratio, units="px", type="cairo-png")
-  #magick::image_graph()
-  plot(0, xlim=c(min(full), max(full[,1])),
-       ylim = c(min(full[,2]), max(full[,2])),
-       xaxt='n', yaxt='n', xlab=NA, ylab=NA, bty='n')
-  for(i in 1:length(xy)){
-    polygon(x = xy[[i]][,1], y=xy[[i]][,2], col="grey", border = "grey")
-  }
-  #img = magick::image_capture()
-  #corners = image.CornerDetectionHarris::image_harris(img)
-  #corners_out = cbind(corners[[1]], corners[[2]])
-  dev.off()
+  ratio = min(5, width/height)
+
+  st_polygon(xy) %>% 
+    ggplot() + 
+    geom_sf(fill = 'grey', color = 'grey') + 
+    theme_void() +
+    lims(x = c(min(full), max(full[,1])), y = c(min(full[,2]), max(full[,2]))) +
+    ggsave(file.path(dir,'temp.png'), width = 5*ratio, height = 5, units = 'in', dpi = 180)
+  
   # Call the corners helper on the new image
-  corners_out = harris4(img = "temp.png")
+  corners_out = harris4(img = file.path(dir,'temp.png'))
+
+  # Build a non image alternate?
+  # corners_out <- {st_polygon(xy) %>% st_simplify(dTolerance = .03)}[[1]]
   
   ## I need to output the number of corners, the xvar of them, and the yvar of them
   return(c(corners=nrow(corners_out), xvar = var(corners_out[,1]), yvar=var(corners_out[,2]),
@@ -207,7 +208,7 @@ get_one_symmetry_noncontig = function(xy){
 }
 
 
-get_one_symmetry_contig = function(xy){
+get_one_symmetry_contig = function(xy, shp){
   # get centroid, get area
   centroid = c(mean(xy[,1]), mean(xy[,2]))
   dist_area = geosphere::areaPolygon(xy)/1000000
