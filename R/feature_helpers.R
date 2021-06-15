@@ -59,6 +59,60 @@ crack_shp = function(coord1){  # a list of polygon coords; list of length 1 in t
   }
 }
 
+crack_shp_new = function(geo){  # a list of polygon coords; list of length 1 in the case of contiguous districts
+  if(length(coord1)==1){
+
+    centroid <- st_coordinates(st_centroid(geo))
+    centroid_x <- centroid[1]
+    centroid_y <- centroid[2]
+    
+    coords <- st_coordinates(geo)[, 1:2]
+
+    jagged <- 1/nrow(coords)
+    lines3 = sapply(1:nrow(df), FUN=function(x)  dist(coords[x:(x-1),]))
+    radii = sapply(1:nrow(coords), FUN=function(x)  dist(rbind(coords[x,],  c(centroid_x, centroid_y))))
+    
+    boyce = mean(abs(radii - mean(radii))/mean(radii))
+    maxx = max(coords[, 1])
+    minx = min(coords[, 1])
+    maxy = max(coords[, 2])
+    miny = min(coords[, 2])
+    lenwid = abs(maxx-minx)/abs(maxy - miny)
+
+    return(c(nrow(coords), var(coords[, 1]), var(coords[, 2]), var(coords[, 1])/var(coords[, 2]),
+             mean(unlist(lines)), var(unlist(lines)), boyce, lenwid, jagged, length(coord1)))
+  } else {
+    line1 = c()
+    for(i in 1:length(coord1)){
+      df = coord1[[i]]
+      colnames(df) = c("x", "y")
+      df = data.frame(df)
+      lines = sapply(1:nrow(df), FUN=function(x)  dist(rbind(df[x,], df[x-1,])))
+      line1[[i]] = lines
+    }
+    df = do.call(rbind,coord1)
+    colnames(df) = c("x", "y")
+    df = data.frame(df)
+    centroid_x = mean(df$x, na.rm=T)
+    centroid_y = mean(df$y, na.rm=T)
+    radii = sapply(1:nrow(df), FUN=function(x)  dist(rbind(df[x,],  c(centroid_x, centroid_y))))
+    
+    boyce = mean(abs(radii - mean(radii))/mean(radii))
+    maxx = max(df$x)
+    minx = min(df$x)
+    maxy = max(df$y)
+    miny = min(df$y)
+    lenwid = abs(maxx-minx)/abs(maxy - miny)
+    jagged = mean(unlist(lines))/sum(unlist(lines))
+    #area = polyarea(df$x, df$y)
+    return(c(nrow(df), var(df$x), var(df$y), abs(1-var(df$x)/var(df$y)), # added this last one 5/25/18
+             mean(unlist(line1)), var(unlist(line1)), boyce, lenwid, jagged, length(coord1)))
+    
+  }
+}
+
+
+
 get_first_features = function(shp){
   metadata = data.frame(shp[[1]])
   xy = shp[[2]]
@@ -72,6 +126,18 @@ get_first_features = function(shp){
 }
 
 
+get_first_features_new = function(shp){
+  metadata = data.frame(shp[[1]])
+  xy = shp[[2]]
+  namecol = shp[[3]]
+  pointsvars_sl_new = lapply(xy, crack_shp_new)
+  pointsvars_sl = do.call(rbind, pointsvars_sl)
+  pointsvars_sl = data.frame(pointsvars_sl)
+  colnames(pointsvars_sl) = c("points", "var_xcoord", "var_ycoord", "varcoord_ratio",
+                              "avgline", "varline", "boyce", "lenwid", "jagged", "parts")
+  return(pointsvars_sl)
+}
+
 ## But I'll have to figure out how to do the arc features here
 get_all_bound_features = function(shp){
   temp = lapply(1:nrow(shp[[1]]), FUN=function(x) get_one_bound_feature(shp[[2]][[x]]))
@@ -84,25 +150,25 @@ get_all_bound_features = function(shp){
 ## To do this, it should be easy to plot the shape with no labels or axes
 get_corners_features = function(shp){
   dir <- withr::local_tempdir()
-  temp = lapply(1:nrow(shp[[1]]), FUN=function(x, direc = dir) get_one_corner(shp[[2]][[x]], direc))
+  temp = lapply(1:nrow(shp[[1]]), FUN=function(x, direc = dir){get_one_corner(shp[[1]][x,], shp[[2]][[x]], direc)})
   withr::deferred_clear()
   do.call(rbind, temp)
 }
 
 ## Here I call a function I source from Harris.R
-get_one_corner = function(xy, dir){
+get_one_corner = function(shp_1, xy, dir){
   full = do.call(rbind, xy)
   width = max(full[,1]) - min(full[,1])
   height = max(full[,2]) - min(full[,2])
   ratio = min(5, width/height)
 
-  st_polygon(xy) %>% 
+  shp_1 %>% 
     ggplot() + 
     geom_sf(fill = 'grey', color = 'grey') + 
     theme_void() +
-    lims(x = c(min(full), max(full[,1])), y = c(min(full[,2]), max(full[,2]))) +
+    lims(x = c(min(full[,1]), max(full[,1])), y = c(min(full[,2]), max(full[,2]))) +
     ggsave(file.path(dir,'temp.png'), width = 5*ratio, height = 5, units = 'in', dpi = 180)
-  
+
   # Call the corners helper on the new image
   corners_out = harris4(img = file.path(dir,'temp.png'))
 
