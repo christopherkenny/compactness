@@ -16,7 +16,10 @@
 #' preds = generate_predictions(features, shp[[3]])
 
 generate_predictions = function(features, namecol, new.models = NULL){
-  cols_to_check = (ncol(feats)-27):ncol(feats)
+  if('geometry' %in% names(features)){
+    features <- features[,-which(names(features) == 'geometry')]
+  }
+  cols_to_check = (ncol(features)-27):ncol(features)
   idx = complete.cases(features[,cols_to_check])
   features = features[idx,]
   

@@ -162,9 +162,9 @@ get_one_corner = function(shp_1, xy, dir){
   height = max(full[,2]) - min(full[,2])
   ratio = min(5, width/height)
 
-  shp_1 %>% 
-    ggplot() + 
-    geom_sf(fill = 'grey', color = 'grey') + 
+  shp_1 %>%
+    ggplot() +
+    geom_sf(fill = 'grey', color = 'grey') +
     theme_void() +
     lims(x = c(min(full[,1]), max(full[,1])), y = c(min(full[,2]), max(full[,2]))) +
     ggsave(file.path(dir,'temp.png'), width = 5*ratio, height = 5, units = 'in', dpi = 180)
@@ -172,6 +172,8 @@ get_one_corner = function(shp_1, xy, dir){
   # Call the corners helper on the new image
   corners_out = harris4(img = file.path(dir,'temp.png'))
 
+  #pts <- {shp_1 %>% st_simplify(dTolerance = .04) %>% st_coordinates()}[,1:2] 
+  #corners_out <- pt_to_num(pts, st_bbox(shp_1), ratio)
   # Build a non image alternate?
   # corners_out <- {st_polygon(xy) %>% st_simplify(dTolerance = .03)}[[1]]
   
@@ -180,7 +182,21 @@ get_one_corner = function(shp_1, xy, dir){
            cornervar_ratio = abs(1-(var(corners_out[,1])/var(corners_out[,2])))))
 }
 
-
+pt_to_num <- function(mat, bbox, ratio){
+  min_x <- bbox[1]
+  min_y <- bbox[2]
+  max_x <- bbox[3]
+  max_y <- bbox[4]
+  seq_x <- seq(min_x, max_x, length.out = round(ratio * 1000))
+  seq_y <- seq(max_y, min_y, length.out = 1000)
+  
+  for(i in 1:nrow(mat)){
+    mat[i,1] <- which.min(abs(mat[i,1] - seq_x))
+    mat[i,2] <- which.min(abs(mat[i,2] - seq_y))
+  }
+  
+  return(mat)
+}
 
 ## And finally, the symmetry features
 get_symmetry_features = function(shp){
