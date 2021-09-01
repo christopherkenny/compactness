@@ -26,5 +26,6 @@ Imports:
     image.CornerDetectionHarris, 
     raster,
     withr,
-    ggplot2
+    ggplot2,
+    imager
 RoxygenNote: 7.1.1
