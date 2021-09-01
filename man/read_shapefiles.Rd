@@ -2,12 +2,12 @@
 % Please edit documentation in R/read_shapefiles.R
 \name{read_shapefiles}
 \alias{read_shapefiles}
-\title{This script takes the name a .shp file and breaks it apart into its metadata and coordinates.}
+\title{Read Shapes into compactnessShapefiles}
 \usage{
 read_shapefiles(shp, namecol, verbose = TRUE)
 }
 \arguments{
-\item{shp}{The filename of a shp file containing district polygons.}
+\item{shp}{The filename of a shp file containing district polygons or an sf dataframe.}
 
 \item{namecol}{The ID of the column with the district name in it}
 

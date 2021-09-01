@@ -24,5 +24,7 @@ Imports:
     cleangeo, 
     units, 
     image.CornerDetectionHarris, 
-    raster
-RoxygenNote: 6.0.1
+    raster,
+    withr,
+    ggplot2
+RoxygenNote: 7.1.1
