@@ -20,6 +20,8 @@ read_shapefiles = function(shp, namecol, verbose=TRUE){ # namecol specifies the 
     }
     
     dists <- sf::st_read(shp, quiet = TRUE)
+  } else {
+    dists <- shp
   }
   
   l <- nrow(dists)
